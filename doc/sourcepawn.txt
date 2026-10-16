@@ -1,0 +1,153 @@
+*sourcepawn.txt*  SourcePawn support for Neovim
+
+==============================================================================
+CONTENTS                                                 *sourcepawn-contents*
+
+  1. Introduction ............................... |sourcepawn-introduction|
+  2. Requirements ............................... |sourcepawn-requirements|
+  3. Installing tools ........................... |sourcepawn-install|
+  4. Configuration .............................. |sourcepawn-config|
+  5. Compiling .................................. |sourcepawn-compile|
+  6. Syntax highlighting ........................ |sourcepawn-highlighting|
+  7. Platforms .................................. |sourcepawn-platforms|
+  8. Lua API .................................... |sourcepawn-api|
+
+==============================================================================
+1. INTRODUCTION                                 *sourcepawn* *sourcepawn.nvim*
+                                                     *sourcepawn-introduction*
+
+sourcepawn.nvim sets up Neovim for SourcePawn, the language of SourceMod
+plugins:
+
+- `.sp` files, and `.inc` files under an `include/` folder, get the
+  `sourcepawn` filetype.
+- sourcepawn-studio runs as the language server, with SourceMod's includes
+  and compiler wired in. The LSP config is named `sourcepawn_studio`.
+- |:make| compiles the current file with spcomp.
+- Treesitter highlighting starts when the `sourcepawn` parser is installed.
+
+Nothing runs at startup beyond registering the filetype, a command and the
+LSP config. The language server uses the nearest `.git` folder as the project
+root. Outside a git repository it still works for the file you're editing,
+but doesn't load the rest of the project.
+
+==============================================================================
+2. REQUIREMENTS                                      *sourcepawn-requirements*
+
+- Neovim 0.12 or later.
+- `curl` and `tar` for |:SourcePawnInstall|. Windows 10 and later include
+  both. On Windows, `tar` must be the system's `tar.exe`, which can read zip
+  files.
+
+Run |:checkhealth| `sourcepawn` to see what was found.
+
+==============================================================================
+3. INSTALLING TOOLS                                       *sourcepawn-install*
+
+                                                          *:SourcePawnInstall*
+:SourcePawnInstall
+    Downloads sourcepawn-studio and SourceMod's scripting folder into the
+    folder returned by |sourcepawn.data_dir()|. Runs in the background and
+    reports progress with |vim.notify()|. Open SourcePawn buffers pick up the
+    new tools when it finishes, without a restart.
+
+    The versions come from `server_version` and `sourcemod_version` in
+    |sourcepawn-config|. Run it again after changing either.
+
+    If a download fails, the previous install is kept.
+
+sourcepawn-studio is used from that folder when present, and otherwise from
+`PATH`.
+
+==============================================================================
+4. CONFIGURATION                                           *sourcepawn-config*
+
+Calling |sourcepawn.setup()| is optional. The defaults: >lua
+
+    require('sourcepawn').setup({
+      scripting_dir = nil,
+      sourcemod_version = '1.12.0.7255',
+      server_version = 'v8.1.8',
+    })
+<
+                                                    *sourcepawn-scripting_dir*
+scripting_dir ~
+    Folder containing spcomp and `include/`, such as
+    `addons/sourcemod/scripting` in a SourceMod release or `package` in a
+    `configure.py --scripting-only` build. Defaults to the one
+    |:SourcePawnInstall| downloads. Set it to use your own SourceMod: >lua
+
+        require('sourcepawn').setup({ scripting_dir = vim.env.SMDIR })
+<
+                                                *sourcepawn-sourcemod_version*
+sourcemod_version ~
+    SourceMod release |:SourcePawnInstall| downloads, as listed on
+    https://github.com/alliedmodders/sourcemod/releases. Plugins compiled
+    with a newer SourceMod may not load on servers running an older one, so
+    match the oldest SourceMod your servers run.
+
+                                                   *sourcepawn-server_version*
+server_version ~
+    sourcepawn-studio release tag |:SourcePawnInstall| downloads, as listed
+    on https://github.com/Sarrus1/sourcepawn-studio/releases.
+
+==============================================================================
+5. COMPILING                                              *sourcepawn-compile*
+
+In SourcePawn buffers, 'makeprg' runs spcomp on the current file and
+'errorformat' reads its errors and warnings, so |:make| fills the |quickfix|
+list. spcomp writes the `.smx` file to Neovim's current directory.
+
+When there is no compiler (see |sourcepawn-platforms|), 'makeprg' is left
+alone.
+
+==============================================================================
+6. SYNTAX HIGHLIGHTING                               *sourcepawn-highlighting*
+
+Highlighting comes from the `sourcepawn` treesitter parser, which this plugin
+doesn't include. With nvim-treesitter: >lua
+
+    require('nvim-treesitter').install({ 'sourcepawn' })
+<
+Once the parser is installed, highlighting starts for every SourcePawn
+buffer. To turn it off, call |vim.treesitter.stop()| from your own
+`after/ftplugin/sourcepawn.lua`.
+
+==============================================================================
+7. PLATFORMS                                            *sourcepawn-platforms*
+
+What |:SourcePawnInstall| downloads on each platform:
+
+    Platform               sourcepawn-studio   SourceMod ~
+    Linux x86_64           yes                 compiler and includes
+    Windows x86_64, arm64  yes                 compiler and includes
+    Linux arm64, armv7     yes                 includes only
+    macOS                  yes                 includes only
+
+SourceMod only publishes compilers for Linux x86 and Windows. Elsewhere the
+includes still give you completion, hover and go-to-definition, but |:make|
+and compiler diagnostics need |sourcepawn-scripting_dir| pointing at a
+scripting folder with spcomp built for your platform.
+
+==============================================================================
+8. LUA API                                                    *sourcepawn-api*
+
+sourcepawn.setup({opts})                                  *sourcepawn.setup()*
+    Overrides the defaults in |sourcepawn-config|. Must run before
+    |:SourcePawnInstall| or opening a SourcePawn file to take effect there.
+
+sourcepawn.data_dir()                                  *sourcepawn.data_dir()*
+    Returns the folder |:SourcePawnInstall| downloads into:
+    `stdpath('data')/sourcepawn`.
+
+sourcepawn.scripting_dir()                        *sourcepawn.scripting_dir()*
+    Returns the scripting folder in use, or `nil` if it doesn't exist.
+
+sourcepawn.compiler()                                  *sourcepawn.compiler()*
+    Returns the path to spcomp in the scripting folder, preferring the 64-bit
+    build, or `nil` if there is none.
+
+sourcepawn.server()                                      *sourcepawn.server()*
+    Returns the command that starts sourcepawn-studio.
+
+ vim:tw=78:ts=8:noet:ft=help:norl:
